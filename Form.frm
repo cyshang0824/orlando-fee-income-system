@@ -134,6 +134,9 @@ NoFileError:
     Exit Sub
 End Sub
 
+
+
+
 Sub Search_Click()
     If Trim(Me.想繳幾月.Text) = "" Or Val(Me.想繳幾月.Text) = 0 Then
         Me.想繳幾月.Text = "1"
@@ -161,22 +164,20 @@ Sub Search_Click()
     latestFileName = ""
     Set wbExternal = Nothing
     On Error GoTo ErrorHandler_Search
-
     If Not wbExternal Is Nothing Then
         wbExternal.Close SaveChanges:=False
         Set wbExternal = Nothing
         Set ws住戶 = Nothing
     End If
-
     fileName = Dir(folderPath & searchPattern)
     Do While fileName <> ""
         timestampString = Mid(fileName, 6, 15)
         dateTimeString = Left(timestampString, 4) & "/" & _
-                         Mid(timestampString, 5, 2) & "/" & _
-                         Mid(timestampString, 7, 2) & " " & _
-                         Mid(timestampString, 10, 2) & ":" & _
-                         Mid(timestampString, 12, 2) & ":" & _
-                         Right(timestampString, 2)
+            Mid(timestampString, 5, 2) & "/" & _
+            Mid(timestampString, 7, 2) & " " & _
+            Mid(timestampString, 10, 2) & ":" & _
+            Mid(timestampString, 12, 2) & ":" & _
+            Right(timestampString, 2)
         On Error Resume Next
         currentTimestamp = CDbl(CDate(dateTimeString))
         On Error GoTo ErrorHandler_Search
@@ -186,42 +187,55 @@ Sub Search_Click()
         End If
         fileName = Dir
     Loop
-
     If latestFileName = "" Then
         Me.住戶總表Name_2.Caption = "找不到檔案"
         MsgBox "無法找到任何最新的備份檔案，無法執行查詢。", vbCritical, "錯誤"
         Exit Sub
     End If
-
     Latest_ExternalPath = folderPath & latestFileName
     Me.住戶總表Name_2.Caption = latestFileName
-
     On Error Resume Next
     Set wbExternal = Workbooks(latestFileName)
     On Error GoTo ErrorHandler_Search
     If wbExternal Is Nothing Then
         Set wbExternal = Workbooks.Open(Latest_ExternalPath)
     End If
-
     Set ws住戶 = wbExternal.Sheets("住戶總表")
+    
+    ' ======= 新增段落：預產生收據編號並填入收據範本 =======
+    Dim ws紀錄_External As Worksheet
+    Dim Max As Long, PreviousNumber As Long
+    Dim NextReceiptNo As String
+
+    Set ws紀錄_External = wbExternal.Sheets("歐藍朵大廈管理費繳費紀錄")
+    Max = 2
+    Do While ws紀錄_External.Cells(Max, 10) <> "" Or ws紀錄_External.Cells(Max, 1) <> "" Or ws紀錄_External.Cells(Max, 2) <> ""
+        Max = Max + 1
+    Loop
+    If Max > 2 And Left(ws紀錄_External.Cells(Max - 1, 10), 2) = "PC" Then
+        PreviousNumber = Val(Mid(ws紀錄_External.Cells(Max - 1, 10), 3)) + 1
+        NextReceiptNo = "PC" & Format(PreviousNumber, "0000")
+    Else
+        NextReceiptNo = "PC0001"
+    End If
+ThisWorkbook.Sheets("收據範本").Cells(2, 5) = NextReceiptNo
+ThisWorkbook.Sheets("收據範本").Cells(18, 5) = NextReceiptNo
+    ' ========== 新增段落結束 ==========
+
     Set wbMain = ThisWorkbook
     wbMain.Activate
     wbMain.Sheets("收據範本").Select
     wbMain.Sheets("收據範本").Cells(2, 2).Select
-
     棟樓別_Search = Me.棟樓別_2.Text
     棟樓別 = 棟樓別_Search
-
     Select Case "-" & Mid(棟樓別, InStr(棟樓別, "-") + 1)
         Case "-2", "-4": 棟樓別 = "C-" & 棟樓別
         Case "-1", "-3": 棟樓別 = "D-" & 棟樓別
         Case "-5", "-7", "-9": 棟樓別 = "A-" & 棟樓別
         Case "-6", "-8", "-10": 棟樓別 = "B-" & 棟樓別
     End Select
-
     Found_棟樓別 = False
     X = 2
-
     Do
         If ws住戶.Cells(X, 3) = 棟樓別 Then
             住戶總表_X = X
@@ -232,41 +246,37 @@ Sub Search_Click()
             Max_Y = Y - 1
             繳到幾月_2.Caption = ws住戶.Cells(1, Max_Y)
             住戶總表_繳到幾月Y = Max_Y
-
             If Val(想繳幾月.Text) > 12 Then MsgBox "不能繳超過一年"
-
             If Val(想繳幾月.Text) = 1 Then
                 本次繳交月份 = Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) + Val(想繳幾月.Text)
                 If 本次繳交月份 > 12 Then
-                     本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
-                     收據繳交月份 = 本次繳交月份 & "月"
+                    本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
+                    收據繳交月份 = 本次繳交月份 & "月"
                 Else
-                     收據繳交月份 = Year(Now) - 1911 & "/" & 本次繳交月份 & "月"
+                    收據繳交月份 = Year(Now) - 1911 & "/" & 本次繳交月份 & "月"
                 End If
             Else
                 本次繳交月份 = Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) + Val(想繳幾月.Text)
                 If 本次繳交月份 > 12 Then
-                     本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
+                    本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
                 End If
                 If CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 <= 12 Then
-                     收據繳交月份 = Year(Now) - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 & "-" & 本次繳交月份 & "月"
+                    收據繳交月份 = Year(Now) - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 & "-" & 本次繳交月份 & "月"
                 Else
-                     收據繳交月份 = Year(Now) + 1 - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 - 12 & "-" & 本次繳交月份 & "月"
+                    收據繳交月份 = Year(Now) + 1 - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 - 12 & "-" & 本次繳交月份 & "月"
                 End If
             End If
             收據繳交月份_2.Text = 收據繳交月份
-
             舊車費要幾個月 = 0
             新車費要幾個月 = 0
             If Month(Now) >= 7 And Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) <= 6 Then
-                 舊車費要幾個月 = 6 - Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1))
+                舊車費要幾個月 = 6 - Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1))
             End If
             If 舊車費要幾個月 < Val(想繳幾月.Text) Then
-                 新車費要幾個月 = Val(想繳幾月.Text) - 舊車費要幾個月
+                新車費要幾個月 = Val(想繳幾月.Text) - 舊車費要幾個月
             Else
-                 舊車費要幾個月 = Val(想繳幾月.Text)
+                舊車費要幾個月 = Val(想繳幾月.Text)
             End If
-
             所有權人_2.Caption = ws住戶.Cells(X, 4)
             管理費_2.Text = ws住戶.Cells(X, 6) * Val(想繳幾月.Text)
             汽車車位_2.Caption = ws住戶.Cells(X, 7)
@@ -275,28 +285,23 @@ Sub Search_Click()
             機車清潔費_2.Text = ws住戶.Cells(X, 10) * 新車費要幾個月 + ws住戶.Cells(X, 18) * 舊車費要幾個月
             小計_2.Text = Val(管理費_2.Text) + Val(汽車清潔費_2.Text) + Val(機車清潔費_2.Text)
             應繳金額_2.Caption = 小計_2.Text
-
             If ws住戶.Cells(X, 13) <> "" Then
-                 區權會抵扣_2.Text = 0
+                區權會抵扣_2.Text = 0
             Else
-                 區權會抵扣_2.Text = ws住戶.Cells(X, 12)
+                區權會抵扣_2.Text = ws住戶.Cells(X, 12)
             End If
-
             If ws住戶.Cells(X, 15) <> "" Then
-                 住戶回饋_2.Text = 0
+                住戶回饋_2.Text = 0
             Else
-                 住戶回饋_2.Text = ws住戶.Cells(X, 13)
+                住戶回饋_2.Text = ws住戶.Cells(X, 13)
             End If
-
             應繳金額_2.Caption = Val(小計_2.Text) - Val(區權會抵扣_2.Text) - Val(住戶回饋_2.Text)
-
             If 汽車車位_2.Caption = "" Then 汽車車位_2.Caption = "無"
             If 汽車清潔費_2.Text = "" Then 汽車清潔費_2.Text = "0"
             If 機車車位_2.Caption = "" Then 機車車位_2.Caption = "無"
             If 機車清潔費_2.Text = "" Then 機車清潔費_2.Text = "0"
             If 區權會抵扣_2.Text = "" Then 區權會抵扣_2.Text = "0"
             If 住戶回饋_2.Text = "" Then 住戶回饋_2.Text = "0"
-
             Dim CurrentYear As String, currentMonth As String, currentDay As String
             Dim currentHour As String, currentMinute As String
             CurrentYear = Format(Year(Now), "000")
@@ -305,14 +310,12 @@ Sub Search_Click()
             currentHour = Format(Hour(Now), "00")
             currentMinute = Format(Minute(Now), "00")
             Current_Time = "'" & CurrentYear & currentMonth & currentDay & currentHour & currentMinute
-
             Call 填入收據範本
             Found_棟樓別 = True
             Exit Do
         End If
         X = X + 1
     Loop Until ws住戶.Cells(X, 3) = ""
-
     If Found_棟樓別 = False Then
         MsgBox "沒有此住戶"
         所有權人_2.Caption = ""
@@ -335,7 +338,6 @@ ExitHandler_Search:
         Set ws住戶 = Nothing
     End If
     Exit Sub
-
 ErrorHandler_Search:
     Me.住戶總表Name_2.Caption = "查詢錯誤"
     MsgBox "查詢時發生錯誤：" & Err.Description, vbCritical, "查詢失敗"
@@ -346,6 +348,17 @@ ErrorHandler_Search:
     Set wbExternal = Nothing
     Resume ExitHandler_Search
 End Sub
+
+
+
+
+
+
+
+
+
+
+
 
 Sub 儲存與印收據_Click()
     Dim wbExternal As Workbook
