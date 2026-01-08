@@ -23,6 +23,7 @@ Public 住戶總表_繳到幾月Y As Long
 Public Current_Time, 棟樓別, 收據繳交月份
 
 
+
 '------------------------------
 ' UserForm 初始化
 '------------------------------
@@ -134,9 +135,7 @@ NoFileError:
 End Sub
 
 
-'------------------------------
-' Search_Click
-'------------------------------
+
 Sub Search_Click()
     If Trim(Me.想繳幾月.Text) = "" Or Val(Me.想繳幾月.Text) = 0 Then
         Me.想繳幾月.Text = "1"
@@ -146,8 +145,6 @@ Sub Search_Click()
     Dim Found_棟樓別 As Boolean
     Dim X As Long: X = 2
     Dim Y As Long, Max_Y As Long
-    Dim 本次繳交月份 As Variant
-    Dim 舊車費要幾個月 As Integer, 新車費要幾個月 As Integer
     Dim folderPath As String
     Dim searchPattern As String
     Dim fileName As String
@@ -156,9 +153,11 @@ Sub Search_Click()
     Dim currentTimestamp As Double
     Dim timestampString As String
     Dim dateTimeString As String
+    ' 加以宣告
+    Dim rangeStartYear As Long, rangeStartMonth As Long
 
     folderPath = GetFolderPath()
-    searchPattern = "住戶總表_????????_??????*.xlsx"    ' ★修正pattern
+    searchPattern = "住戶總表_????????_??????*.xlsx"
     latestTimestamp = 0
     latestFileName = ""
     Set wbExternal = Nothing
@@ -200,6 +199,7 @@ Sub Search_Click()
         Set wbExternal = Workbooks.Open(Latest_ExternalPath)
     End If
     Set ws住戶 = wbExternal.Sheets("住戶總表")
+
     ' ======= 新增段落：預產生收據編號並填入收據範本 =======
     Dim ws紀錄_External As Worksheet
     Dim Max As Long, PreviousNumber As Long
@@ -223,6 +223,7 @@ Sub Search_Click()
     wbMain.Activate
     wbMain.Sheets("收據範本").Select
     wbMain.Sheets("收據範本").Cells(2, 2).Select
+
     棟樓別_Search = Me.棟樓別_2.Text
     棟樓別 = 棟樓別_Search
     Select Case "-" & Mid(棟樓別, InStr(棟樓別, "-") + 1)
@@ -243,37 +244,57 @@ Sub Search_Click()
             Max_Y = Y - 1
             繳到幾月_2.Caption = ws住戶.Cells(1, Max_Y)
             住戶總表_繳到幾月Y = Max_Y
-            If Val(想繳幾月.Text) > 12 Then MsgBox "不能繳超過一年"
-            If Val(想繳幾月.Text) = 1 Then
-                本次繳交月份 = Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) + Val(想繳幾月.Text)
-                If 本次繳交月份 > 12 Then
-                    本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
-                    收據繳交月份 = 本次繳交月份 & "月"
-                Else
-                    收據繳交月份 = Year(Now) - 1911 & "/" & 本次繳交月份 & "月"
-                End If
+
+            ' ========== 處理年月推算 ==========
+            Dim alreadyMonth As Long, CurrentYear As Long, currentMonth As Long, payMonths As Long
+            Dim startYear As Long, startMonth As Long
+            Dim endYear As Long, endMonth As Long
+
+            alreadyMonth = Val(Replace(繳到幾月_2.Caption, "月", ""))
+            payMonths = Val(Me.想繳幾月.Text)
+            CurrentYear = Year(Date) - 1911
+            currentMonth = Month(Date)
+
+            If alreadyMonth > currentMonth Then
+                startYear = CurrentYear - 1
             Else
-                本次繳交月份 = Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) + Val(想繳幾月.Text)
-                If 本次繳交月份 > 12 Then
-                    本次繳交月份 = Year(Now) - 1911 + 1 & "/" & 本次繳交月份 - 12
+                startYear = CurrentYear
+            End If
+            startMonth = alreadyMonth
+
+            endYear = startYear
+            endMonth = startMonth + payMonths
+            Do While endMonth > 12
+                endMonth = endMonth - 12
+                endYear = endYear + 1
+            Loop
+
+            If payMonths = 1 Then
+                收據繳交月份 = endYear & "/" & endMonth & "月"
+            Else
+                rangeStartYear = startYear
+                rangeStartMonth = startMonth + 1
+                If rangeStartMonth > 12 Then
+                    rangeStartMonth = rangeStartMonth - 12
+                    rangeStartYear = rangeStartYear + 1
                 End If
-                If CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 <= 12 Then
-                    收據繳交月份 = Year(Now) - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 & "-" & 本次繳交月份 & "月"
-                Else
-                    收據繳交月份 = Year(Now) + 1 - 1911 & "/" & CInt(Replace(繳到幾月_2.Caption, "月", "")) + 1 - 12 & "-" & 本次繳交月份 & "月"
-                End If
+                收據繳交月份 = rangeStartYear & "/" & rangeStartMonth & "-" & endYear & "/" & endMonth & "月"
             End If
             收據繳交月份_2.Text = 收據繳交月份
+            ' ========== 處理年月推算 END ==========
+
+            Dim 舊車費要幾個月 As Integer, 新車費要幾個月 As Integer
             舊車費要幾個月 = 0
             新車費要幾個月 = 0
-            If Month(Now) >= 7 And Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1)) <= 6 Then
-                舊車費要幾個月 = 6 - Val(Left(繳到幾月_2.Caption, Len(繳到幾月_2.Caption) - 1))
+            If Month(Now) >= 7 And alreadyMonth <= 6 Then
+                舊車費要幾個月 = 6 - alreadyMonth
             End If
             If 舊車費要幾個月 < Val(想繳幾月.Text) Then
                 新車費要幾個月 = Val(想繳幾月.Text) - 舊車費要幾個月
             Else
                 舊車費要幾個月 = Val(想繳幾月.Text)
             End If
+
             所有權人_2.Caption = ws住戶.Cells(X, 4)
             管理費_2.Text = ws住戶.Cells(X, 6) * Val(想繳幾月.Text)
             汽車車位_2.Caption = ws住戶.Cells(X, 7)
@@ -282,6 +303,7 @@ Sub Search_Click()
             機車清潔費_2.Text = ws住戶.Cells(X, 10) * 新車費要幾個月 + ws住戶.Cells(X, 18) * 舊車費要幾個月
             小計_2.Text = Val(管理費_2.Text) + Val(汽車清潔費_2.Text) + Val(機車清潔費_2.Text)
             應繳金額_2.Caption = 小計_2.Text
+
             If ws住戶.Cells(X, 13) <> "" Then
                 區權會抵扣_2.Text = 0
             Else
@@ -299,20 +321,23 @@ Sub Search_Click()
             If 機車清潔費_2.Text = "" Then 機車清潔費_2.Text = "0"
             If 區權會抵扣_2.Text = "" Then 區權會抵扣_2.Text = "0"
             If 住戶回饋_2.Text = "" Then 住戶回饋_2.Text = "0"
-            Dim CurrentYear As String, currentMonth As String, currentDay As String
+
+            Dim currentMonthStr As String, currentDay As String
             Dim currentHour As String, currentMinute As String
             CurrentYear = Format(Year(Now), "000")
-            currentMonth = Format(Month(Now), "00")
+            currentMonthStr = Format(Month(Now), "00")
             currentDay = Format(Day(Now), "00")
             currentHour = Format(Hour(Now), "00")
             currentMinute = Format(Minute(Now), "00")
-            Current_Time = "'" & CurrentYear & currentMonth & currentDay & currentHour & currentMinute
+            Current_Time = "'" & CurrentYear & currentMonthStr & currentDay & currentHour & currentMinute
             Call 填入收據範本
+
             Found_棟樓別 = True
             Exit Do
         End If
         X = X + 1
     Loop Until ws住戶.Cells(X, 3) = ""
+
     If Found_棟樓別 = False Then
         MsgBox "沒有此住戶"
         所有權人_2.Caption = ""
@@ -346,6 +371,8 @@ ErrorHandler_Search:
     Set wbExternal = Nothing
     Resume ExitHandler_Search
 End Sub
+
+
 
 
 Sub 儲存與印收據_Click()
@@ -697,3 +724,5 @@ Private Sub 印收據_Click()
         清空表單
     End If
 End Sub
+
+
